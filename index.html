@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Seat-Live – Real-time bus seat availability</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef1f3;--surface:#fff;--ink:#10222b;--muted:#5a6b74;--line:#cfd8dd;--sig:#f2b705;--ok:#0e7c7b;--warn:#c77d00;--full:#c8372d;--seat:#d7e0e4;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d1a21;--surface:#14262f;--ink:#e8eef1;--muted:#93a6af;--line:#26404c;--seat:#27414d;--ok:#3fc1bf;--warn:#f0a73a;--full:#ff6b5e}}
+:root[data-theme="dark"]{--bg:#0d1a21;--surface:#14262f;--ink:#e8eef1;--muted:#93a6af;--line:#26404c;--seat:#27414d;--ok:#3fc1bf;--warn:#f0a73a;--full:#ff6b5e}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.5 Barlow,system-ui,sans-serif}
+h1,h2,h3{font-family:"Barlow Condensed",Impact,sans-serif;margin:0;line-height:1.1}
+header{background:#10222b;color:#fff;border-bottom:6px solid var(--sig)}
+.wrap{max-width:1080px;margin:0 auto;padding:0 16px}
+.hero{padding:28px 0 22px}
+.hero h1{font-size:clamp(2.2rem,6vw,3.6rem);letter-spacing:.01em}
+.hero p{max-width:60ch;color:#f1f6f8;margin:8px 0 0}
+nav{display:flex;gap:4px;flex-wrap:wrap;margin-top:18px}
+nav button{font:600 1.05rem "Barlow Condensed",sans-serif;background:transparent;color:#f1f6f8;border:0;border-bottom:3px solid transparent;padding:8px 14px;cursor:pointer}
+nav button[aria-selected=true]{color:#fff;border-color:var(--sig)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--sig);outline-offset:2px}
+main{padding:22px 0 48px}
+section[hidden]{display:none}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.chip{border:1.5px solid var(--ink);background:var(--surface);color:var(--ink);padding:5px 14px;border-radius:99px;font:500 .95rem Barlow;cursor:pointer}
+.chip[aria-pressed=true]{background:var(--ink);color:var(--bg)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.bus{background:var(--surface);border:1px solid var(--line);border-left:8px solid var(--ok);padding:14px 16px;border-radius:4px}
+.bus.warn{border-left-color:var(--warn)}.bus.full{border-left-color:var(--full)}
+.bus .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.bus h3{font-size:1.5rem}.bus .dep{font:700 1.3rem "Barlow Condensed";color:var(--muted)}
+.route{color:var(--muted);margin:0 0 10px;font-size:.95rem}
+.free{font:700 2.3rem "Barlow Condensed";line-height:1}
+.free small{font:500 1rem Barlow;color:var(--muted)}
+.ok .free{color:var(--ok)}.warn .free{color:var(--warn)}.full .free{color:var(--full)}
+.seats{display:grid;grid-template-columns:repeat(25,1fr);gap:2px;margin:10px 0}
+.seats i{aspect-ratio:1;background:var(--seat);border-radius:2px}
+.seats i.on{background:var(--ink)}
+.bus .meta{display:flex;justify-content:space-between;font-size:.88rem;color:var(--muted);flex-wrap:wrap;gap:4px}
+.legend{font-size:.88rem;color:var(--muted);margin:14px 0 0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:16px;margin-bottom:16px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+label{display:flex;flex-direction:column;font-size:.85rem;color:var(--muted);gap:3px;flex:1;min-width:180px}
+select,input{font:inherit;padding:8px 10px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);border-radius:4px}
+.btn{font:700 1.05rem "Barlow Condensed";letter-spacing:.02em;background:var(--sig);color:#10222b;border:0;padding:10px 18px;border-radius:4px;cursor:pointer}
+.btn.alt{background:transparent;color:var(--ink);border:1.5px solid var(--ink)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:760px){.two{grid-template-columns:1fr}}
+#cam{width:100%;max-height:260px;background:#000;border-radius:4px;display:none}
+.msg{margin-top:12px;padding:10px 12px;border-radius:4px;border-left:6px solid var(--line);background:var(--bg);min-height:46px}
+.msg.good{border-color:var(--ok)}.msg.bad{border-color:var(--full)}
+ul.log{list-style:none;padding:0;margin:0;max-height:260px;overflow:auto;font-size:.92rem}
+ul.log li{padding:6px 0;border-bottom:1px solid var(--line)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.tk{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:10px;text-align:center}
+.tk .qr{display:flex;justify-content:center;background:#fff;padding:6px;border-radius:3px}
+.tk b{display:block;margin-top:6px}.tk span{font-size:.82rem;color:var(--muted);display:block}
+.tk button{margin-top:6px;width:100%;padding:6px}
+.bars{display:flex;align-items:end;gap:4px;height:200px;overflow-x:auto;padding-top:8px}
+.bars div{flex:1;min-width:20px;background:var(--seat);position:relative;border-radius:2px 2px 0 0}
+.bars div.hi{background:var(--full)}.bars div.lo{background:var(--ok)}
+.bars div span{position:absolute;top:-18px;left:0;right:0;text-align:center;font-size:.72rem}
+.ticks{display:flex;gap:4px;font-size:.72rem;color:var(--muted)}.ticks span{flex:1;min-width:20px;text-align:center}
+.notes h3{font-size:1.4rem;margin:18px 0 4px}.notes p{max-width:72ch;margin:0 0 8px;color:var(--muted)}
+@media (prefers-reduced-motion:no-preference){.seats i{transition:background .3s}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+<div class="hero">
+<h1>Seat-Live</h1>
+<p>See how many seats are left on a bus before you leave for the terminal. Seats update the moment a passenger scans their ticket on boarding.</p>
+</div>
+<nav role="tablist" aria-label="Sections">
+<button role="tab" aria-selected="true" data-tab="board">Seat board</button>
+<button role="tab" aria-selected="false" data-tab="scan">Boarding scanner</button>
+<button role="tab" aria-selected="false" data-tab="tix">Tickets</button>
+<button role="tab" aria-selected="false" data-tab="demand">Demand</button>
+<button role="tab" aria-selected="false" data-tab="about">About the idea</button>
+</nav>
+</div></header>
+<main class="wrap">
+
+<section id="board">
+<div class="row" style="margin-bottom:12px;align-items:center">
+<div class="chips" id="chips" style="margin:0"></div>
+
+</div>
+<div class="grid" id="buses"></div>
+<p class="legend">Filled squares are seats taken by passengers who have scanned in. Reserved seats are shown separately because a reservation does not mean the person has boarded.</p>
+</section>
+
+<section id="scan" hidden>
+<div class="two">
+<div class="panel">
+<h2>Scan a ticket</h2>
+<div class="row" style="margin:12px 0">
+<label>Bus at the door<select id="sbus"></select></label>
+</div>
+<video id="cam" playsinline muted></video>
+<div class="row" style="margin:10px 0">
+<button class="btn" id="camBtn">Start webcam scanner</button>
+</div>
+<div class="row">
+<label>Ticket code (or QR reader input)<input id="code" placeholder="UPN-0001" autocomplete="off"></label>
+<button class="btn" id="codeBtn">Scan ticket</button>
+</div>
+<div class="row" style="margin-top:10px">
+<label>Or pick a passenger to simulate<select id="who"></select></label>
+<button class="btn alt" id="whoBtn">Tap card</button>
+</div>
+<div class="msg" id="msg" role="status" aria-live="polite">Waiting for a scan.</div>
+</div>
+<div class="panel">
+<h2>Boarding log</h2>
+<p class="legend" style="margin:4px 0 8px">Newest first. Each scan is saved with its time for the demand chart.</p>
+<ul class="log" id="log"></ul>
+</div>
+</div>
+</section>
+
+<section id="tix" hidden>
+<div class="panel">
+<h2>Register a passenger</h2>
+<div class="row" style="margin-top:10px">
+<label>Full name<input id="newName" placeholder="Juan Dela Cruz"></label>
+<button class="btn" id="addBtn">Register and make QR ticket</button>
+</div>
+<p class="legend">Each QR code holds the passenger's ticket ID. Point a webcam at one on the scanner tab, or use Tap card.</p>
+</div>
+<div class="cards" id="cards"></div>
+</section>
+
+<section id="demand" hidden>
+<div class="panel">
+<h2>Boardings by hour of day</h2>
+<p class="legend" style="margin:4px 0 12px" id="insight"></p>
+<div class="bars" id="bars"></div>
+<div class="ticks" id="ticks"></div>
+</div>
+<p class="legend">Red bars are the busiest hours and green bars are the quietest. Operators can add trips at the peaks. Commuters can travel when buses are emptier.</p>
+</section>
+
+<section id="about" hidden class="notes">
+<div class="panel">
+<h3>How it works</h3>
+<p>Customers see available seats on buses in real time on this website. When a passenger boards, they scan a registered ticket or card. The passenger is added to that bus's list and the occupied and free seat counts update automatically. With 50 seats and 30 boarded, 20 seats show as free.</p>
+<h3>Why it helps</h3>
+<p>Commuters can see how full a bus is and decide whether to go to the terminal, instead of arriving to find every bus full. Boarding records show when most passengers board and when few do, so passengers can plan trips and operators can see demand.</p>
+<h3>What is new</h3>
+<p>Scanning tickets identifies who actually boarded, so there is less reliance on manual counting or conductors updating figures by hand. It also separates boarded passengers from people who only reserved. Digital identification, registration, capacity monitoring and data analysis already exist separately. The invention combines them to improve journey planning.</p>
+<h3>This demonstration</h3>
+<p>Buses and passengers here are simulated, so no real public bus is needed. QR codes stand in for tickets or cards, a webcam or QR reader can scan them, and a small in-page database holds passengers and buses. The board shows Bus ID, route, total seats, occupied seats and free seats.</p>
+</div>
+</section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const TERMS={"One Ayala":[["Santa Rosa, Laguna","06:30"],["Calamba, Laguna","07:15"],["Batangas City","08:00"]],
+"PITX Parañaque":[["Naic, Cavite","06:45"],["Tagaytay","07:30"],["Lemery, Batangas","08:15"]],
+"Araneta Cubao":[["Baguio City","07:00"],["Tuguegarao","08:30"],["Vigan, Ilocos Sur","09:00"]]};
+const CODES={"One Ayala":"AYL","PITX Parañaque":"PTX","Araneta Cubao":"CBO"};
+const NAMES=["Maria Santos","Jose Reyes","Ana Cruz","Mark Bautista","Liza Garcia","Paolo Mendoza","Grace Ramos","Carlo Aquino","Joy Villanueva","Ramon Torres","Kristine Flores","Miguel Castro","Bea Navarro","Rico Domingo","Tina Salazar","Dennis Lim","Cathy Pascual","Noel Ocampo","Jenny Agbayani","Arvin Dela Rosa","Mica Soriano","Ed Manalo","Pia Aguilar","Leo Velasco","Faith Cortez","Jun Padilla","Rhea Santiago","Ian Marquez","Dina Tolentino","Bong Evangelista"];
+let pax=NAMES.map((n,i)=>({id:"UPN-"+String(i+1).padStart(4,"0"),name:n,bus:null,res:null}));
+const buses=[];let k=100;
+for(const [t,rs] of Object.entries(TERMS))for(const [r,d] of rs){k++;const seats=[45,50,50,49][k%4];
+buses.push({id:CODES[t]+"-"+k,term:t,route:r,dep:d,seats,pre:Math.round(seats*[.25,.5,.72,.88,1][k%5]),riders:[]})}
+buses.forEach((b,i)=>{pax.filter((p,j)=>!p.res&&j%buses.length===i&&j<18).forEach(p=>p.res=b.id)});
+const curve=[0,0,0,0,2,6,18,26,20,12,8,7,6,7,6,8,12,20,24,15,8,4,2,0];
+const hist=curve.map(v=>v*3+Math.round(v*Math.random()));
+let term="All",tab="board",log=[],timer=null,camStream=null,camLoop=null,lastCode="",lastAt=0;
+const occ=b=>b.pre+b.riders.length;
+const resv=b=>pax.filter(p=>p.res===b.id&&!p.bus).length;
+const cls=b=>{const r=occ(b)/b.seats;return r>=1?"full":r>=.8?"warn":"ok"};
+const hr=h=>{const x=h%12||12;return x+(h<12?" AM":" PM")};
+
+function chips(){const el=$("chips");el.innerHTML="";["All",...Object.keys(TERMS)].forEach(t=>{const c=document.createElement("button");c.className="chip";c.textContent=t==="All"?"All terminals":t;c.setAttribute("aria-pressed",t===term);c.onclick=()=>{term=t;chips();board()};el.appendChild(c)})}
+function board(){const el=$("buses");el.innerHTML="";
+buses.filter(b=>term==="All"||b.term===term).forEach(b=>{const o=Math.min(occ(b),b.seats),f=b.seats-o,c=cls(b);
+const d=document.createElement("article");d.className="bus "+c;
+let cells="";for(let i=0;i<b.seats;i++)cells+=`<i class="${i<o?"on":""}"></i>`;
+d.innerHTML=`<div class="top"><h3>${b.id}</h3><span class="dep">${b.dep}</span></div>
+<p class="route">${b.term} to ${b.route}</p>
+<div class="free">${f===0?"Full":f}<small> ${f===0?"– no seats left":"seats free"}</small></div>
+<div class="seats" role="img" aria-label="${o} of ${b.seats} seats taken">${cells}</div>
+<div class="meta"><span>${b.seats} total seats</span><span>${o} occupied</span><span>${resv(b)} reserved, not boarded</span></div>`;
+el.appendChild(d)});
+const s=$("sbus"),v=s.value;s.innerHTML=buses.map(b=>`<option value="${b.id}">${b.id} – ${b.route} (${Math.max(b.seats-occ(b),0)} free)</option>`).join("");if(v)s.value=v}
+function who(){$("who").innerHTML=pax.map(p=>`<option value="${p.id}">${p.name} (${p.id})</option>`).join("")}
+function say(t,ok){const m=$("msg");m.textContent=t;m.className="msg "+(ok?"good":"bad")}
+function stamp(){return new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit",second:"2-digit"})}
+function boardPax(code,busId){code=String(code||"").trim().toUpperCase();
+const p=pax.find(x=>x.id===code),b=buses.find(x=>x.id===busId);
+if(!p){say("Ticket "+(code||"(empty)")+" is not registered. Boarding refused.",false);return false}
+if(p.bus){say(p.name+" is already on "+p.bus+". Scan ignored.",false);return false}
+if(occ(b)>=b.seats){say(b.id+" is full. "+p.name+" cannot board.",false);return false}
+p.bus=b.id;b.riders.push(p.id);hist[new Date().getHours()]++;
+log.unshift(`${stamp()} – ${p.name} boarded ${b.id} (${b.route}). ${b.seats-occ(b)} seats free.`);
+say(p.name+" boarded "+b.id+". "+(b.seats-occ(b))+" seats free.",true);
+board();renderLog();stat(p);demand();return true}
+function renderLog(){$("log").innerHTML=log.slice(0,40).map(l=>`<li>${l}</li>`).join("")||"<li>No scans yet.</li>"}
+function card(p){const d=document.createElement("div");d.className="tk";d.id="tk-"+p.id;
+d.innerHTML=`<div class="qr"></div><b>${p.name}</b><span>${p.id}</span><span class="st"></span><button class="btn alt">Tap card</button>`;
+$("cards").appendChild(d);
+try{new QRCode(d.querySelector(".qr"),{text:p.id,width:96,height:96})}catch(e){d.querySelector(".qr").textContent=p.id}
+d.querySelector("button").onclick=()=>{tabTo("scan");$("who").value=p.id;boardPax(p.id,$("sbus").value)};stat(p)}
+function stat(p){const e=document.querySelector("#tk-"+p.id+" .st");if(e)e.textContent=p.bus?"On "+p.bus:p.res?"Reserved "+p.res:"Registered"}
+function demand(){const lo=4,hi=22,sl=hist.slice(lo,hi+1),mx=Math.max(...sl,1);
+const sorted=sl.map((v,i)=>[v,i+lo]).sort((a,b)=>b[0]-a[0]),top=sorted.slice(0,3).map(x=>x[1]),bot=sorted.slice(-3).map(x=>x[1]);
+$("bars").innerHTML=sl.map((v,i)=>`<div class="${top.includes(i+lo)?"hi":bot.includes(i+lo)?"lo":""}" style="height:${Math.max(v/mx*100,2)}%" title="${hr(i+lo)}: ${v}"><span>${v}</span></div>`).join("");
+$("ticks").innerHTML=sl.map((v,i)=>`<span>${i+lo}</span>`).join("");
+$("insight").textContent=`Busiest boarding hour: ${hr(sorted[0][1])} (${sorted[0][0]} boardings). Quietest hour: ${hr(sorted[sorted.length-1][1])} (${sorted[sorted.length-1][0]}). Hours use the 24-hour clock.`}
+function tabTo(t){tab=t;document.querySelectorAll("nav button").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===t));
+["board","scan","tix","demand","about"].forEach(s=>$(s).hidden=s!==t);if(t!=="scan")stopCam()}
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>tabTo(b.dataset.tab));
+$("codeBtn").onclick=()=>{boardPax($("code").value,$("sbus").value);$("code").value=""};
+$("code").onkeydown=e=>{if(e.key==="Enter")$("codeBtn").click()};
+$("whoBtn").onclick=()=>boardPax($("who").value,$("sbus").value);
+$("addBtn").onclick=()=>{const n=$("newName").value.trim();if(!n)return;
+const p={id:"UPN-"+String(pax.length+1).padStart(4,"0"),name:n,bus:null,res:null};pax.push(p);card(p);who();$("newName").value=""};
+timer=setInterval(()=>{const free=pax.filter(p=>!p.bus);const open=buses.filter(b=>occ(b)<b.seats);
+if(!free.length||!open.length){pax.forEach(p=>{p.bus=null;stat(p)});buses.forEach(b=>{b.riders=[];b.pre=Math.round(b.seats*[.25,.5,.72,.88,1][Math.random()*5|0])});log.unshift(stamp()+" – New trips started. Seats reset.");board();renderLog();return}
+const p=free[Math.random()*free.length|0],b=open[Math.random()*open.length|0];boardPax(p.id,b.id)},1800);
+async function startCam(){try{camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
+const v=$("cam");v.srcObject=camStream;v.style.display="block";await v.play();$("camBtn").textContent="Stop webcam scanner";
+const cv=document.createElement("canvas"),cx=cv.getContext("2d",{willReadFrequently:true});
+camLoop=setInterval(()=>{if(v.videoWidth){cv.width=v.videoWidth;cv.height=v.videoHeight;cx.drawImage(v,0,0);
+const q=jsQR(cx.getImageData(0,0,cv.width,cv.height).data,cv.width,cv.height);
+if(q&&q.data&&(q.data!==lastCode||Date.now()-lastAt>3000)){lastCode=q.data;lastAt=Date.now();boardPax(q.data,$("sbus").value)}}},300)}
+catch(e){say("Webcam unavailable here. Use the ticket code box or Tap card instead.",false)}}
+function stopCam(){clearInterval(camLoop);camLoop=null;if(camStream)camStream.getTracks().forEach(t=>t.stop());camStream=null;$("cam").style.display="none";$("camBtn").textContent="Start webcam scanner"}
+$("camBtn").onclick=()=>camStream?stopCam():startCam();
+chips();board();who();pax.forEach(card);renderLog();demand();
+</script>
+</body>
+</html>
